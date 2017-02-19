@@ -1,7 +1,7 @@
 classdef GeneratorPenoveStruktury < handle
-%% GENETRATORPENOVESTRUKTURY T¯Ìda zajiöùujÌcÌ pr·ci s j·dry pro VoronÈho teselaci ve 3D
+%% GENETRATORPENOVESTRUKTURY T≈ô√≠da zaji≈°≈•uj√≠c√≠ pr√°ci s j√°dry pro Voron√©ho teselaci ve 3D
 %     Verze: 2016-10-23
-%     Kontakt: Roman PapöÌk <roman.papsik@vutbr.cz>
+%     Kontakt: Roman Pap≈°√≠k <roman.papsik@vutbr.cz>
 
 	properties
 		velikostBunky = 0
@@ -14,23 +14,23 @@ classdef GeneratorPenoveStruktury < handle
 	methods (Access = public)
 
 		function gps = GeneratorPenoveStruktury
-		%% GENERATORPENOVESTRUKTURY Konstruktor t¯Ìdy (nepot¯ebuje û·dnÈ parametry)
-		%     PouûitÌ: instance = GeneratorPenoveStruktury
+		%% GENERATORPENOVESTRUKTURY Konstruktor t≈ô√≠dy (nepot≈ôebuje ≈æ√°dn√© parametry)
+		%     Pou≈æit√≠: instance = GeneratorPenoveStruktury
 
 		end
 
 		function VygenerovatJadra(gps, rozmery, velikostBunky, pravidelnost)
-		%% VYGENEROVATJADRA Vygenetruje v prostoru j·dra dle zadan˝ch parametr˘
+		%% VYGENEROVATJADRA Vygenetruje v prostoru j√°dra dle zadan√Ωch parametr≈Ø
 		%     instance.VYGENEROVATJADRA(rozmery, velikostBunky, pravidelnost)
 		%         rozmery - vektor 1x3
-		%         velikostBunky - pr˘mÏr koule buÚce vepsanÈ
+		%         velikostBunky - pr≈Ømƒõr koule bu≈àce vepsan√©
 		%         pravidelnost - hodnota v procentech
 
 			gps.rozmery = rozmery;
 			gps.velikostBunky = velikostBunky;
 			gps.pravidelnost = pravidelnost/100;
 
-			% pod 60% pravidelnosti pouûÌt jinou metodu
+			% pod 60% pravidelnosti pou≈æ√≠t jinou metodu
 			if (gps.pravidelnost < 0.6)
 				gps.VygenerovatNahodne;
 			else
@@ -38,25 +38,25 @@ classdef GeneratorPenoveStruktury < handle
 				gps.Rozmistit;
 			end
 
-			disp('Generov·nÌ jader:');
+			disp('Generov√°n√≠ jader:');
 			disp(['  * objem [', num2str(gps.rozmery), ']']);
 			disp(['  * pravidelnost [', num2str(gps.pravidelnost*100), '%]']);
-			disp(['  * velikost buÚky [', num2str(gps.velikostBunky), ']']);
+			disp(['  * velikost bu≈àky [', num2str(gps.velikostBunky), ']']);
 		end
 
 		function NacistJadra(gps, varargin)
-		%% NACISTJADRA NaËte j·dra ze zvolenÈho souboru
-		%     instance.NACISTJADRA - zobrazi dialogovÈ okno pro v˝bÏr souboru
-		%     instance.NACISTJADRA('C:\soubor.xyz') - naËte soubor p¯Ìmo
+		%% NACISTJADRA Naƒçte j√°dra ze zvolen√©ho souboru
+		%     instance.NACISTJADRA - zobrazi dialogov√© okno pro v√Ωbƒõr souboru
+		%     instance.NACISTJADRA('C:\soubor.xyz') - naƒçte soubor p≈ô√≠mo
 
 			if nargin == 2
 				adresa = fullfile(varargin{1});
 			% pokud nebyl zadany soubor, otevre se dialog
 			else
-				[jmeno_souboru, adresar_souboru] = uigetfile({'*.xyz', 'Sou¯adnice jader'}, 'NaËÌst soubor s j·dry');
+				[jmeno_souboru, adresar_souboru] = uigetfile({'*.xyz', 'Sou≈ôadnice jader'}, 'Naƒç√≠st soubor s j√°dry');
 				% sobor nebyl zvolen
 				if isequal(jmeno_souboru, 0) || isequal(adresar_souboru, 0)
-					warning('Soubor nebyl vybr·n');
+					warning('Soubor nebyl vybr√°n');
 					return;
 				% pouzije se zvoleny soubor
 				else
@@ -67,18 +67,18 @@ classdef GeneratorPenoveStruktury < handle
 			gps.rozmery = csvread(adresa, 0, 0, [0 0 0 2]);
 			gps.jadra = csvread(adresa, 1, 0);
 			gps.jadra = gps.jadra(:, 1:3);
-			disp('NaËÌt·nÌ jader:');
+			disp('Naƒç√≠t√°n√≠ jader:');
 			disp(['  * soubor [', adresa, ']']);
 		end
 
 		function UlozitJadra(gps, varargin)
-		%% ULOZITJADRA UloûÌ j·dra ze zvolenÈho souboru
-		%     instance.ULOZITJADRA - zobrazi dialogovÈ okno pro v˝bÏr souboru
-		%     instance.ULOZITJADRA('C:\soubor.xyz') - uloûÌ soubor p¯Ìmo
+		%% ULOZITJADRA Ulo≈æ√≠ j√°dra ze zvolen√©ho souboru
+		%     instance.ULOZITJADRA - zobrazi dialogov√© okno pro v√Ωbƒõr souboru
+		%     instance.ULOZITJADRA('C:\soubor.xyz') - ulo≈æ√≠ soubor p≈ô√≠mo
 
-			% ove¯enÌ, zda nÏjak· j·dra existujÌ
+			% ove≈ôen√≠, zda nƒõjak√° j√°dra existuj√≠
 			if isempty(gps.jadra)
-				warning('NeexistujÌ û·dnÈ j·dra');
+				warning('Neexistuj√≠ ≈æ√°dn√© j√°dra');
 				return;
 			end
 
@@ -87,10 +87,10 @@ classdef GeneratorPenoveStruktury < handle
 				adresa = fullfile(varargin{1});
 			% pokud nebyl zadany soubor, otevre se dialog
 			else
-				[jmeno_souboru, adresar_souboru] = uiputfile({'*.xyz', 'Sou¯adnice jader'}, 'Uloûit soubor s j·dry');
+				[jmeno_souboru, adresar_souboru] = uiputfile({'*.xyz', 'Sou≈ôadnice jader'}, 'Ulo≈æit soubor s j√°dry');
 				% sobor nebyl zvolen
 				if isequal(jmeno_souboru, 0) || isequal(adresar_souboru, 0)
-					warning('Soubor nebyl vybr·n');
+					warning('Soubor nebyl vybr√°n');
 					return;
 				% pouzije se zvoleny soubor
 				else
@@ -99,27 +99,27 @@ classdef GeneratorPenoveStruktury < handle
 			end
 
 			dlmwrite(adresa, [gps.rozmery; gps.jadra], 'precision', '%.18g', 'newline', 'pc');
-			disp('Ukl·d·nÌ jader:');
+			disp('Ukl√°d√°n√≠ jader:');
 			disp(['  * soubor [', adresa, ']']);
 		end
 
 		function VytvoritApdl(gps, typ, varargin)
-		%% VYTVORITAPDL Odeöle j·dra aplikaci pro vygenerov·nÌ kÛdu APDL
-		%     instance.VYTVORITAPDL(vystupniSoubor) - Parametrem je adresa a n·zev v˝stupnÌho souboru
+		%% VYTVORITAPDL Ode≈°le j√°dra aplikaci pro vygenerov√°n√≠ k√≥du APDL
+		%     instance.VYTVORITAPDL(vystupniSoubor) - Parametrem je adresa a n√°zev v√Ωstupn√≠ho souboru
 
 			% vstupni soubor se vygeneruje automaticky v temp slozce
 			vstup = [tempname, '.xyz'];
 			dlmwrite(vstup, [(1:length(gps.jadra))', gps.jadra], 'delimiter', ' ', 'precision', '%-.18g', 'newline', 'pc');
 
-			disp('Vytv·¯enÌ voronÈho teselace a APDL kÛdu...');
+			disp('Vytv√°≈ôen√≠ voron√©ho teselace a APDL k√≥du...');
 
 			if nargin == 3
 				vystup = fullfile(varargin{1});
 			else
-				[jmeno_souboru, adresar_souboru] = uiputfile({'*.inp', 'KÛd APDL'}, 'Uloûit vstupnÌ soubor pro Ansys');
+				[jmeno_souboru, adresar_souboru] = uiputfile({'*.inp', 'K√≥d APDL'}, 'Ulo≈æit vstupn√≠ soubor pro Ansys');
 				% sobor nebyl zvolen
 				if isequal(jmeno_souboru, 0) || isequal(adresar_souboru, 0)
-					warning('Soubor nebyl vybr·n');
+					warning('Soubor nebyl vybr√°n');
 					return;
 				% pouzije se zvoleny soubor
 				else
@@ -134,15 +134,15 @@ classdef GeneratorPenoveStruktury < handle
 				return;
 			end
 
-			disp('APDL kÛd vytvo¯en');
-			disp(['  * v˝stupnÌ soubor [', vystup, ']']);
+			disp('APDL k√≥d vytvo≈ôen');
+			disp(['  * v√Ωstupn√≠ soubor [', vystup, ']']);
 		end
 	end
 
 	methods (Access = protected)
 
 		function VygenerovatPravidelne(gps)
-		%% VYGENEROVATPRAVIDELNE Vytvo¯Ì zcela pravidelnou strukturu BCC m¯Ìûky
+		%% VYGENEROVATPRAVIDELNE Vytvo≈ô√≠ zcela pravidelnou strukturu BCC m≈ô√≠≈æky
 
 			gps.jadra = []; % vyprazdneni existujicich jader
 			x_max = gps.rozmery(1);
@@ -154,7 +154,7 @@ classdef GeneratorPenoveStruktury < handle
 			pocet_z = ceil(z_max / gps.velikostBunky);
 
 			if (pocet_x*pocet_y*pocet_z) == 0
-				error('P¯Ìliö velk· buÚka');
+				error('P≈ô√≠li≈° velk√° bu≈àka');
 			end
 
 			kompenzace_x = (x_max - pocet_x * gps.velikostBunky)/2;
@@ -182,7 +182,7 @@ classdef GeneratorPenoveStruktury < handle
 		end
 
 		function VygenerovatNahodne(gps)
-		%% VYGENEROVATNAHODNE Umisùuje n·hodnÏ do prostoru j·dra, pokud se v jejich okolÌ nevyskytujÌ jinÈ
+		%% VYGENEROVATNAHODNE Umis≈•uje n√°hodnƒõ do prostoru j√°dra, pokud se v jejich okol√≠ nevyskytuj√≠ jin√©
 			gps.jadra = []; % pro jistotu vyprazdnit
 			x_max = gps.rozmery(1);
 			y_max = gps.rozmery(2);
@@ -207,7 +207,7 @@ classdef GeneratorPenoveStruktury < handle
 		end
 
 		function Rozmistit(gps)
-		%% ROZMISTIT Vych˝lÌ j·dra z pozic urËen˝ch zcela pravidelnou strukturou
+		%% ROZMISTIT Vych√Ωl√≠ j√°dra z pozic urƒçen√Ωch zcela pravidelnou strukturou
 		
 			for i=1:length(gps.jadra)
 				gps.jadra(i,1) = gps.jadra(i,1) + gps.velikostBunky*(1-gps.pravidelnost)*rand*sin(rand*2*pi)*cos(rand*2*pi); %nahodny posun jadra v ramci kulove plochy
@@ -227,19 +227,19 @@ classdef GeneratorPenoveStruktury < handle
 		end
 
 		function d_min = MinimalniVzdalenost(gps)
-		%% MINIMALNIVZDALENOST VypoËÌt· nejmenöÌ vzd·lenost mezi j·dry p¯i dokonalÈm uspo¯·d·nÌ
+		%% MINIMALNIVZDALENOST Vypoƒç√≠t√° nejmen≈°√≠ vzd√°lenost mezi j√°dry p≈ôi dokonal√©m uspo≈ô√°d√°n√≠
 			pocet_x = ceil(gps.rozmery(1) / gps.velikostBunky);
 			pocet_y = ceil(gps.rozmery(2) / gps.velikostBunky);
 			pocet_z = ceil(gps.rozmery(3) / gps.velikostBunky);
 			pocet_jader = pocet_x*pocet_y*pocet_z;
 
-			 % NejmenöÌ dosaûiteln· vzd·lenost mezi j·dry v prostoru
+			 % Nejmen≈°√≠ dosa≈æiteln√° vzd√°lenost mezi j√°dry v prostoru
 			d_min = nthroot(3*sqrt(3)/4/pocet_jader, 3);
 		end
 
 		function prijmout = OvereniVzdalenosti(gps, kandidat)
-		%% OVERENIVZDALENOSTI ZjistÌ, zda v danÈm okolÌ bodu nejsou jinÈ j·dra
-		%     instance.OVERENIVZDALENOSTI([x,y,z]) - parametrem je vektor 3 sou¯adnic v prostoru
+		%% OVERENIVZDALENOSTI Zjist√≠, zda v dan√©m okol√≠ bodu nejsou jin√© j√°dra
+		%     instance.OVERENIVZDALENOSTI([x,y,z]) - parametrem je vektor 3 sou≈ôadnic v prostoru
 			if isempty(gps.jadra)
 				prijmout = true;
 				return;
