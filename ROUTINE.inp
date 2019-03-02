@@ -1,0 +1,485 @@
+*GO,:ttt
+! ------------------------------------------------------------------------------
+! SETUP ANALYSIS
+! ------------------------------------------------------------------------------
+FINISH $ /CLEAR,NOSTART
+! Supress printout
+/NOPR
+! Add restart button
+*ABBR,'Restart','/INPUT,ROUTINE,inp'
+! 10 messages per command, 1 error before break, exit on input error, no warnings (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_NERR.html)
+/NERR,10,1,,OFF,0
+! Disable automatic replot (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_UIS.html)
+/UIS,REPLOT,0
+! Only errors are displayed
+/UIS,MSGPOP,3
+! Keep allocated memmory (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_MEMM.html)
+MEMM,KEEP,ON
+! Change title
+/TITLE,'Tensile test of ceramic foam specimen'
+! Display numbers of keypoints and lines
+/PNUM,KP,0 $ /PNUM,LINE,0 $ /NUMBER,1
+
+! ------------------------------------------------------------------------------
+! VARIABLES
+! ------------------------------------------------------------------------------
+! Specify Young modulus [MPa]
+*SET,youngModulus,90e3
+! Specify Poisson ratio [-]
+*SET,poissonRatio,0.25
+! Specify porosity, i.e. volumetric fraction of void [%]
+*SET,porosity,85
+! Specify tensile strength of bulk ceramics [MPa]
+*SET,tensileStrength,60
+! Specify percentage of lines to be deleted [%]
+*SET,percentageToDelete,0
+! Define Ludolf's number [-]
+*SET,pi,acos(-1)
+! Define boolean true
+*SET,true,1
+
+! ------------------------------------------------------------------------------
+! ELEMENTS
+! ------------------------------------------------------------------------------
+! Preprocesor
+/PREP7
+! Quadratic three-node beam (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_elem/Hlp_E_BEAM189.html)
+ET,1,BEAM189
+! Rigid beam (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_elem/Hlp_E_MPC184link.html)
+!ET,2,MPC184
+
+! ------------------------------------------------------------------------------
+! MATERIAL
+! ------------------------------------------------------------------------------
+! Young's modulus [MPa]
+MP,EX,1,youngModulus
+! Poisson's ratio [-]
+MP,PRXY,1,poissonRatio
+
+! ------------------------------------------------------------------------------
+! IMPORT OF GEOMETRY
+! ------------------------------------------------------------------------------
+! Supress printout
+/NOPR
+! Import geometry of speciment
+/INPUT,GEOMETRY_DIM_10x5x5mm_REG_100_CELL_800um,inp
+! Allow printout
+/GOPR
+! Axonometric projection
+/VIEW,1,1,0.75,2
+! Fill screen with object
+/ZOOM,1,OFF
+! Redraw screen
+LPLOT
+
+! ------------------------------------------------------------------------------
+! DEFINE CROSS-SECTION
+! ------------------------------------------------------------------------------
+! Volume of specimen [mm^3]
+*SET,specimen_volume,sizeX*sizeY*sizeZ
+! Volume of ceramics [mm^3]
+*SET,ceramicVolume,(1-porosity/100)*specimen_volume
+! Circular shape of cross section
+SECTYPE,1,BEAM,CSOLID
+! Calculate section radius according to given porosity
+*SET,sectionRadius,SQRT(ceramicVolume/pi/lines_total_length)
+! Section radius [mm]
+SECDATA,sectionRadius,20,3
+! Section area [mm^2]
+*SET,sectionArea,pi*sectionRadius**2
+! Section modulus [mm^3]
+*SET,sectionModulus,pi/4*sectionRadius**3
+
+! ------------------------------------------------------------------------------
+! CREATE IMPERFECTIONS
+! ------------------------------------------------------------------------------
+! Calculate whole number of lines to be deleted [-]
+*SET,numberToDelete,NINT(percentageToDelete/100*Lcount)
+! Deselect all lines
+LSEL,NONE
+! Loop ensuring that no number was generated twice
+*DOWHILE,true
+	! Get number of selected lines
+	*GET,selectedLinesCount,LINE,,COUNT
+	! Stop if desired number of lines was selected
+	*IF,selectedLinesCount,EQ,numberToDelete,EXIT
+	! Select line with a random number
+	LSEL,A,LINE,,NINT(RAND(1,Lcount))
+*ENDDO
+! Initialize matrix for information about deleted lines
+*DIM,deletedLinesInfo,ARRAY,numberToDelete,7
+! Store numbers of selected lines
+*VGET,deletedLinesInfo(1,1),LINE,,LLIST
+! Get informations about deleted lines
+*DO,lindex,1,numberToDelete
+	! Get coordinates of its first keypoint
+ 	*GET,kp_a,LINE,deletedLinesInfo(lindex,1),KP,1
+ 	*GET,deletedLinesInfo(lindex,2),KP,kp_a,LOC,X
+ 	*GET,deletedLinesInfo(lindex,3),KP,kp_a,LOC,Y
+ 	*GET,deletedLinesInfo(lindex,4),KP,kp_a,LOC,Z
+	! Get coordinates of its second keypoint
+ 	*GET,kp_b,LINE,deletedLinesInfo(lindex,1),KP,2
+ 	*GET,deletedLinesInfo(lindex,5),KP,kp_b,LOC,X
+ 	*GET,deletedLinesInfo(lindex,6),KP,kp_b,LOC,Y
+ 	*GET,deletedLinesInfo(lindex,7),KP,kp_b,LOC,Z
+*ENDDO
+! Delete lines
+LDELE,ALL
+! Select everything again
+ALLSEL,ALL
+
+! ------------------------------------------------------------------------------
+! MESHING
+! ------------------------------------------------------------------------------
+! Delete unconnected keypoints
+KSLL,S  $  KSEL,INVE  $ KDELE,ALL
+! Merge everything
+NUMMRG,ALL
+! Compute mean slenderness
+*SET,slenderness,2*sectionRadius/lines_mean_length
+! Select all lines
+LSEL,ALL
+! Properties of mesh
+LATT,1,,1,,,,1
+! Three elements per one line (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_LESIZE.html)
+LESIZE,ALL,,,3,,1
+! Mesh all lines
+LMESH,ALL
+! Merge nodes, which are too close together (caused errors with bad geometry)
+NUMMRG,NODE,1e-2,1e-2
+! Detach mesh
+MODMSH,DETACH
+! Select everything again
+ALLSEL,ALL
+! Show cross-section of beams
+/ESHAPE,0
+
+! ------------------------------------------------------------------------------
+! (OBSOLETE) BOUNDARY CONDITIONS
+! ------------------------------------------------------------------------------
+! Prescribe displacement
+! NSEL,S,LOC,X,0 $ D,ALL,UX,0
+! NSEL,S,LOC,Y,0 $ D,ALL,UY,0
+! NSEL,S,LOC,Z,0 $ D,ALL,UZ,0
+! Prescribe coupling
+! NSEL,S,LOC,X,sizeX $ CP,1,UX,ALL
+! NSEL,S,LOC,Y,sizeY $ CP,2,UY,ALL
+! NSEL,S,LOC,Z,sizeZ $ CP,3,UZ,ALL
+! Calculate actual loaded area (assumes rectangle)
+! NSEL,S,LOC,X,sizeX
+! *GET,minNodeY,NODE,0,MNLOC,Y $ *GET,minNodeZ,NODE,0,MNLOC,Z
+! *GET,maxNodeY,NODE,0,MXLOC,Y $ *GET,maxNodeZ,NODE,0,MXLOC,Z
+! *SET,area,(maxNodeY-minNodeY)*(maxNodeZ-minNodeZ)
+! Select everything again
+! ALLSEL,ALL
+
+! ------------------------------------------------------------------------------
+! BOUNDARY CONDITIONS
+! ------------------------------------------------------------------------------
+! Fix faces perpendicular to pulling direction
+NSEL,S,LOC,X,0 $ D,ALL,ALL,0
+NSEL,S,LOC,X,sizeX $ D,ALL,ALL,0
+! Calculate loaded area
+*SET,area,sizeY*sizeZ
+! Select everything again
+ALLSEL,ALL
+
+! ------------------------------------------------------------------------------
+! SOLVER SETTINGS
+! ------------------------------------------------------------------------------
+! Solver
+/SOLU
+! New static analysis
+ANTYPE,STATIC,NEW
+! Reset to default values
+OUTRES,ERASE
+! Do not save basic items unless specified
+OUTRES,BASIC,NONE
+! Save DOF solution
+OUTRES,NSOL,LAST
+! Save DOF solution
+OUTRES,RSOL,LAST
+! Save loads
+OUTRES,NLOAD,LAST
+! Save miscellaneous data
+OUTRES,MISC,LAST
+! Control stiffness matrix update
+!NROPT,FULL
+! Write file for last load step only
+!RESCONTROL,DEFINE,LAST
+
+! ------------------------------------------------------------------------------
+! (OBSOLETE) INITIAL LOAD STEP
+! ------------------------------------------------------------------------------
+! Select nodes in pulled face
+! NSEL,S,LOC,X,sizeX
+! Select one node from couple set in that face
+! *GET,loadedNode,NODE,0,NUM,MIN
+! Apply initial displacement to this node [mm]
+! D,loadedNode,UX,0.0001
+! Select everything again
+! ALLSEL,ALL
+
+! ------------------------------------------------------------------------------
+! INITIAL LOAD STEP
+! ------------------------------------------------------------------------------
+! Select nodes in the pulled face
+NSEL,S,LOC,X,sizeX
+! Apply initial displacement [mm]
+D,ALL,UX,0.001
+! Select everything again
+ALLSEL,ALL
+
+! ------------------------------------------------------------------------------
+! MAIN LOOP
+! ------------------------------------------------------------------------------
+! Initialize loop index
+*SET,loop_index,0
+! Initialize counter of deleted elements
+*SET,dead_elements,0
+! Initialize matrix for information about broken struts
+*DIM,broken_struts_info,ARRAY,4096,12
+! Cycle until the test specimen is broken
+*DOWHILE,true
+! Inrement loop index
+*SET,loop_index,loop_index+1
+! Limit number of loops for developement testing
+*IF,loop_index,GT,1000,EXIT
+! Solver
+/SOLU
+! Start solution
+SOLVE
+
+! ------------------------------------------------------------------------------
+! CHECK FOR REACTIONS
+! ------------------------------------------------------------------------------
+! Post-procesor
+/POST1
+! Select nodes in the fixed plane
+NSEL,S,LOC,X,0
+! Calculate reaction forces
+FSUM
+! Get reaction forces in pulling direction
+*GET,reaction_forces,FSUM,,ITEM,FX
+! If rection forces are zero then the specimen is broken. Therefore stop.
+*IF,reaction_forces,EQ,0,EXIT
+! Select everything again
+ALLSEL,ALL
+
+! ------------------------------------------------------------------------------
+! CALCULATION OF STRESS
+! ------------------------------------------------------------------------------
+! Retrieve axial forces [N]
+ETABLE,axial_force_i,SMISC,1
+ETABLE,axial_force_j,SMISC,14
+! Retrieve bending moments [N*mm]
+ETABLE,bending_moment_i_y,SMISC,2
+ETABLE,bending_moment_i_z,SMISC,3
+ETABLE,bending_moment_j_y,SMISC,15
+ETABLE,bending_moment_j_z,SMISC,16
+! Square bending moments [N^2*mm^2]
+SMULT,bending_moment_i_y_sqr,bending_moment_i_y,bending_moment_i_y
+SMULT,bending_moment_i_z_sqr,bending_moment_i_z,bending_moment_i_z
+SMULT,bending_moment_j_y_sqr,bending_moment_j_y,bending_moment_j_y
+SMULT,bending_moment_j_z_sqr,bending_moment_j_z,bending_moment_j_z
+! Sum of squares of bending moments [N^2*mm^2]
+SADD,bending_moment_i_sqr,bending_moment_i_y_sqr,bending_moment_i_z_sqr
+SADD,bending_moment_j_sqr,bending_moment_j_y_sqr,bending_moment_j_z_sqr
+! Extract the root of sum of bending moments [N*mm]
+SEXP,bending_moment_i,bending_moment_i_sqr,,0.5
+SEXP,bending_moment_j,bending_moment_j_sqr,,0.5
+! Calculates stresses caused by bending [MPa]
+SMULT,bending_stress_i,bending_moment_i,,1/sectionModulus
+SMULT,bending_stress_j,bending_moment_j,,1/sectionModulus
+! Calculates stresses caused by bending [MPa]
+SMULT,axial_stress_i,bending_moment_i,,1/sectionArea
+SMULT,axial_stress_j,bending_moment_j,,1/sectionArea
+! Sum stress caused by bending moments and axial forces [MPa]
+SADD,stress_i,bending_stress_i,axial_stress_i
+SADD,stress_j,bending_stress_j,axial_stress_j
+! Retrieve greated value of stress from both ends [MPa]
+SMAX,normal_stress,stress_i,stress_j
+! Sort table of stress
+ESORT,ETAB,normal_stress,0,0
+! Get the maximal value of stress [MPa]
+*GET,maximal_stress,SORT,,MAX
+
+! ------------------------------------------------------------------------------
+! DISPLACEMENT CONTROL
+! ------------------------------------------------------------------------------
+! Post-procesor
+/POST1
+! Allow printout
+! /GOPR
+! Get displacements in direction X
+NSEL,S,LOC,X,sizeX
+*GET,nodeX,NODE,0,NUM,MIN
+*GET,displacementX,NODE,nodeX,U,X
+! Get displacements in direction Y
+NSEL,S,LOC,Y,sizeY
+*GET,nodeY,NODE,0,NUM,MIN
+*GET,displacementY,NODE,nodeY,U,Y
+! Get displacements in direction Z
+NSEL,S,LOC,Z,sizeZ
+*GET,nodeZ,NODE,0,NUM,MIN
+*GET,displacementZ,NODE,nodeZ,U,Z
+! Select everything again
+ALLSEL,ALL
+
+! Preprocesor
+/PREP7
+! Check if stress reached tensile strength
+*IF,maximal_stress,GE,tensileStrength,THEN
+	! Get number of element with maximum stress
+	*GET,most_stressed_element,SORT,,IMAX
+	! Increase couter of dead element
+	*SET,dead_elements,dead_elements+1
+	! Store length of the element
+	*SET,broken_struts_info(dead_elements,1),DISTND(NELEM(most_stressed_element,1),NELEM(most_stressed_element,2))
+	! Store centroid coordinates of the element
+	*SET,broken_struts_info(dead_elements,2),CENTRX(most_stressed_element)
+	*SET,broken_struts_info(dead_elements,3),CENTRY(most_stressed_element)
+	*SET,broken_struts_info(dead_elements,4),CENTRZ(most_stressed_element)
+	! Store first end coordinates of the element
+	*SET,broken_struts_info(dead_elements,5),NX(NELEM(most_stressed_element,1))
+	*SET,broken_struts_info(dead_elements,6),NY(NELEM(most_stressed_element,1))
+	*SET,broken_struts_info(dead_elements,7),NZ(NELEM(most_stressed_element,1))
+	! Store second end coordinates of the element
+	*SET,broken_struts_info(dead_elements,8),NX(NELEM(most_stressed_element,2))
+	*SET,broken_struts_info(dead_elements,9),NY(NELEM(most_stressed_element,2))
+	*SET,broken_struts_info(dead_elements,10),NZ(NELEM(most_stressed_element,2))
+	! Delete this element
+	EDELE,most_stressed_element
+	! Delete orphaned nodes
+	ESEL,ALL $ NSLE,S,ALL $ NSEL,INVE $ NDELE,ALL
+*ELSE
+	! Calculate ratio between tensile strength and initial maximal stress [-]
+	*SET,scale_factor,tensileStrength/maximal_stress
+	! Scale displacement to immediately reach tensile strength [mm]
+	*SET,scaled_displacement,displacementX*scale_factor
+	! Select nodes in the pulled face
+	NSEL,S,LOC,X,sizeX
+	! Increase stretch of specimen
+	D,ALL,UX,scaled_displacement
+*ENDIF
+! Select everything again
+ALLSEL,ALL
+
+! End of main loop
+*ENDDO
+
+! ------------------------------------------------------------------------------
+! DISPLAY RESULT
+! ------------------------------------------------------------------------------
+! Post-procesor
+/POST1
+! Select everything again
+ALLSEL,ALL
+! Set scale for displacements
+/DSCALE,ALL,200
+! Plot broken pieces of specimen
+PLNSOL,U,SUM,0
+! Plot equivalent stress
+! PLETAB,normalStress,NOAV
+:ttt
+! ------------------------------------------------------------------------------
+! EXPORT INFORMATIONS ABOUT DELETED LINES
+! ------------------------------------------------------------------------------
+! Open file
+*CFOPEN,deleted_lines_info,csv
+! Write header
+*VWRITE,'line_no',',','kp_1_x',',','kp_1_y',',','kp_1_z',',','kp_2_x',',','kp_2_y',',','kp_2_z'
+(A7,A1,A6,A1,A6,A1,A6,A1,A6,A1,A6,A1,A6)
+! Write values
+*VWRITE,deletedLinesInfo(1,1),',',deletedLinesInfo(1,2),',',deletedLinesInfo(1,3),',',deletedLinesInfo(1,4),',',deletedLinesInfo(1,5),',',deletedLinesInfo(1,6),',',deletedLinesInfo(1,7)
+(F9.0,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6)
+! Close file
+*CFCLOS
+
+! ------------------------------------------------------------------------------
+! EXPORT INFORMATIONS ABOUT BROKEN STRUTS
+! ------------------------------------------------------------------------------
+! Open file
+*CFOPEN,broken_struts_info,csv
+! Write header
+*VWRITE,'e_length',',','e_c_x',',','e_c_y',',','e_c_z',',','n_1_x',',','n_1_y',',','n_1_z',',','n_2_x',',','n_2_y',',','n_2_z'
+(A8,A1,A5,A1,A5,A1,A5,A1,A5,A1,A5,A1,A5,A1,A5,A1,A5,A1,A5)
+! Limit number of lines written
+*VLEN,dead_elements
+! Write values
+*VWRITE,broken_struts_info(1,1),',',broken_struts_info(1,2),',',broken_struts_info(1,3),',',broken_struts_info(1,4),',',broken_struts_info(1,5),',',broken_struts_info(1,6),',',broken_struts_info(1,7),',',broken_struts_info(1,8),',',broken_struts_info(1,9),',',broken_struts_info(1,10)
+(F9.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6,A1,F12.6)
+! Close file
+*CFCLOS
+
+! ------------------------------------------------------------------------------
+! DISPLAY OPTIONS
+! ------------------------------------------------------------------------------
+! Activate PowerGraphics
+! /GRAPHICS,POWER
+! Hide triad
+! /TRIAD,OFF
+! Hide whole legend
+! /PLOPTS,INFO,OFF
+! Hide legend header
+! /PLOPTS,LEG1,OFF
+! Hide legend view portion
+! /PLOPTS,LEG2,ON
+! Hide legend contour
+! /PLOPTS,LEG3,OFF
+! Hide window frame
+! /PLOPTS,FRAME,OFF
+! Hide title
+! /PLOPTS,TITLE,OFF
+! Hide min and max
+! /PLOPTS,MINM,OFF
+! Hide jobname
+! /PLOPTS,FILE,OFF
+! No shrinkage
+! /PLOPTS,WINS,ON
+! Hide workplane
+! /PLOPTS,WP,OFF
+! No date and time
+! /PLOPTS,DATE,OFF
+! Display common edges
+! /EDGE,1,1,30
+! Dashed element outlines
+! /GLINE,1,-1
+!
+! /SHADE,1,FACET
+
+! ------------------------------------------------------------------------------
+! GENERATE IMAGE (PNG)
+! ------------------------------------------------------------------------------
+! No compression
+! PNGR,COMP,OFF
+! Pixel resolution
+! /GFILE,600
+! Output to file
+! /SHOW,PNG
+
+! ------------------------------------------------------------------------------
+! GENERATE IMAGE POSTSCRIPT
+! ------------------------------------------------------------------------------
+! PRSC,STAT
+! All rgb components
+! PRSC,CMAP,INDEX
+! Line width
+! PRSC,LWID,5
+! 16 Colours
+! PRSC,COLOR,1
+! Wireframe preview TIFF
+! PRSC,TIFF,1
+! No preview EPSI
+! PRSC,EPSI,0
+! Paper size
+! PRSC,PAPER,A4
+! Paper orientation
+! PRSC,ORIENT,Horizontal
+! Polygon mode
+! PRSC,HIRES,1
+! /SHOW,PSCR
+
+! /ERASE $ /SHOW,CLOSE
+! Exit Ansys without saving database
+! /EXIT,NOSAVE
