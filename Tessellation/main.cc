@@ -1,6 +1,6 @@
-/// Author: Roman Papšík
-/// Email: roman.papsik@email.cz
-/// Date:   2016-10-23
+/// Author: Roman PapÅ¡Ã­k
+/// Email:  roman.papsik@email.cz
+/// Date:   2019-03-22
 
 #include <cmath>
 #include <cstdlib>
@@ -348,7 +348,7 @@ void WriteAPDL(FILE *fp, const double &x, const double &y, const double &z, cons
 		fputs("\n!----- AREAS -----------------------------------------------\n", fp);
 		for (size_t a = 0; a < areas.size(); a++)
 		{
-			// Areas jsou seøazené APDLkem jinak, než jsou jejich indexy - to musíš øešit pøi výpisu jejich hledáním
+			// Areas jsou seÃ¸azenÃ© APDLkem jinak, neÅ¾ jsou jejich indexy - to musÃ­Å¡ Ã¸eÅ¡it pÃ¸i vÃ½pisu jejich hledÃ¡nÃ­m
 			std::fprintf(fp, "NUMSTR,AREA,%zu $ A", areas.at(a).index + 1);
 			for (size_t k = 0; k < areas.at(a).keypoints_indices.size(); k++) {
 				std::fprintf(fp, ",%zu", areas.at(a).keypoints_indices.at(k) + 1);
