@@ -1,0 +1,282 @@
+! ------------------------------------------------------------------------------
+! SETUP ANALYSIS
+! ------------------------------------------------------------------------------
+FINISH $ /CLEAR,NOSTART
+! Supress printout
+/NOPR
+! Add clear and restart button
+*ABBR,'Clear','/CLEAR,NOSTART'
+*ABBR,'Restart','/INPUT,TAPER,inp'
+! 10 messages per command, 1 error before break, exit on input error, no warnings (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_NERR.html)
+/NERR,-2000,99999999,,OFF,0
+! Disable automatic replot (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_UIS.html)
+/UIS,REPLOT,0
+! Only errors are displayed
+/UIS,MSGPOP,3
+! Auto confirm varification pop ups
+KEYW,PR_SGVOF,1
+! Keep allocated memmory (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_MEMM.html)
+MEMM,KEEP,ON
+! Change title
+/TITLE,'Tensile test of ceramic foam specimen'
+! Display numbers of keypoints and lines
+/PNUM,KP,0 $ /PNUM,LINE,0
+! Display numbers of elements
+/PNUM,TYPE,1
+! Show only colors instead
+/NUMBER,1
+! Sel tolerance for select operations
+SELTOL,1e-9
+! Define Ludolf's number [-]
+*SET,PI,acos(-1)
+! Define boolean true and false
+*SET,true,1 $ *SET,false,0
+
+! ------------------------------------------------------------------------------
+! IMPORT GEOMETRY AND POLISH IT
+! ------------------------------------------------------------------------------
+! Supress printout
+/NOPR
+! Import geometry of speciment
+*DEL,input_name $ *DIM,input_name,STRING,100 $ *SET,input_name(1),'GEOMETRY_kelvin_DIM_4x4x4mm_REG_100_CELL_1000um_DEV_0um'
+/INPUT,input_name(1),inp
+! Select areas on the boundary
+KSEL,S,LOC,X,0 $ KSEL,A,LOC,Y,0 $ KSEL,A,LOC,Z,0 $ KSEL,A,LOC,X,sizeX $ KSEL,A,LOC,Y,sizeY $ KSEL,A,LOC,Z,sizeZ
+! Select lines whose all keypoint lie on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_LSLK.html)
+LSLK,S,1
+! Select areas whose any line lies on the boundary or connects two faces (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_ASLL.html)
+ASLL,S,0
+! Select volumes whose any area lies on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_VSLA.html)
+VSLA,S,0
+! Delete volumes on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_VDELE.html)
+VDELE,ALL
+! Delete areas on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_ADELE.html)
+ADELE,ALL
+! Delete lines on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_LDELE.html)
+LDELE,ALL
+! Select unconnected keypoints
+LSEL,ALL $ KSLL,S $ KSEL,INVE
+! Delete them
+KDELE,ALL
+! Select everything again
+ALLSEL,ALL
+! Merge keypoints, which are too close together (caused errors)
+!NUMMRG,KP,5e-2,5e-2
+! Compress numbering
+NUMCMP,KP $ NUMCMP,LINE $ NUMCMP,AREA $ NUMCMP,VOLU
+! Axonometric projection
+/VIEW,1,1,0.75,2
+! Fill screen with object
+/ZOOM,1,OFF
+! Redraw screen
+APLOT
+! Allow printout
+/GOPR
+
+! ------------------------------------------------------------------------------
+! ELEMENTS
+! ------------------------------------------------------------------------------
+! Preprocesor
+/PREP7
+! Do not suggest keyoptions
+ETCONTROL,OFF
+! Quadratic three-node beam (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_elem/Hlp_E_BEAM189.html)
+ET,1,BEAM189
+! Rigid beam (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_elem/Hlp_E_MPC184link.html)
+ET,2,MPC184 $ KEYOPT,2,1,1 $ KEYOPT,2,2,0
+! four-node shell (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_elem/Hlp_E_SHELL281.html)
+ET,3,SHELL281
+! Define volumetric element (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_elem/Hlp_E_SOLID186.html)
+ET,4,SOLID186
+
+! ------------------------------------------------------------------------------
+! MATERIAL
+! ------------------------------------------------------------------------------
+! Specify Young modulus [MPa]
+*SET,youngModulus,90e3
+! Specify Poisson ratio [-]
+*SET,poissonRatio,0.25
+! Specify tensile strength of bulk ceramics [MPa]
+*SET,tensileStrength,60
+! Specify thickness of shells [mm]
+*SET,shellThickness,0.05
+! Young modulus [MPa]
+MP,EX,1,youngModulus
+! Poisson ratio [-]
+MP,PRXY,1,poissonRatio
+
+! ------------------------------------------------------------------------------
+! VARIABLES
+! ------------------------------------------------------------------------------
+! Check if parameter was passed via command line
+*GET,parameter_check,PARM,porosity,TYPE
+! If not then specify porosity, i.e. volumetric fraction of void [%]
+*IF,parameter_check,EQ,-1,THEN
+	*SET,porosity,85
+*ENDIF
+! Check if parameter was passed via command line
+*GET,parameter_check,PARM,pcOfLinesToDelete,TYPE
+! If not then specify percentage of lines to be deleted [%]
+*IF,parameter_check,EQ,-1,THEN
+      *SET,percentOfLinesToDelete,0
+*ELSE
+      *SET,percentOfLinesToDelete,pcOfLinesToDelete
+*ENDIF
+! Check if parameter was passed via command line
+*GET,parameter_check,PARM,pcOfLinesToDelete,TYPE
+! If not then specify percentage of areas to be kept [%]
+*IF,parameter_check,EQ,-1,THEN
+	*SET,percentOfAreasToKeep,0
+*ELSE
+      *SET,percentOfLinesToDelete,pcOfLinesToDelete
+*ENDIF
+! Check if parameter was passed via command line
+*GET,parameter_check,PARM,pcOfLinesToDelete,TYPE
+! If not then specify percentage of volumes to be kept [%]
+*IF,parameter_check,EQ,-1,THEN
+	*SET,percentOfVolumesToKeep,0
+*ELSE
+	*SET,percentOfVolumesToKeep,pcOfVolumesToKeep
+*ENDIF
+! Filenames
+*DEL,suffix $ *DIM,suffix,STRING,100 $ *SET,suffix(1),'_POR_%porosity%_STRUTS_%percentOfLinesToDelete%_PORES_%percentOfAreasToKeep%_CLUMPS_%percentOfVolumesToKeep%'
+*DEL,output_name $ *DIM,output_name,STRING,200 $ *SET,output_name(1),STRCAT(input_name(1),suffix(1))
+
+! ------------------------------------------------------------------------------
+! PARAMETERS OF IMPERFECTIONS
+! ------------------------------------------------------------------------------
+! Volume of specimen [mm^3]
+*SET,specimenVolume,sizeX*sizeY*sizeZ
+! Volume of ceramics [mm^3]
+*SET,ceramicVolume,(1-porosity/100)*specimenVolume
+! Count number of lines
+*GET,linesCount,LINE,,COUNT
+! Count number of areas
+*GET,areasCount,AREA,,COUNT
+! Count number of volumes
+*GET,volumesCount,VOLU,,COUNT
+! Calculate whole number of lines to be deleted [-]
+*SET,numberOfLinesToDelete,NINT(percentOfLinesToDelete/100*linesCount)
+! Calculate whole number of areas to be kept [-]
+*SET,numberOfAreasToKeep,NINT(percentOfAreasToKeep/100*areasCount)
+! Calculate whole number of volumes to be kept [-]
+*SET,numberOfVolumesToKeep,NINT(percentOfVolumesToKeep/100*volumesCount)
+
+! ------------------------------------------------------------------------------
+! CREATE IMPERFECTIONS - BROKEN STRUTS
+! ------------------------------------------------------------------------------
+! Unselect all lines
+LSEL,NONE
+! Loop ensuring that no number was generated twice
+*DOWHILE,true
+	! Get number of selected lines
+	*GET,selectedLinesCount,LINE,,COUNT
+	! Stop if desired number of lines was selected
+	*IF,selectedLinesCount,EQ,numberOfLinesToDelete,EXIT
+	! Select line with a random number
+	LSEL,A,LINE,,NINT(RAND(1,linesCount))
+*ENDDO
+! Initialize matrix for information about deleted lines
+*DEL,deletedLinesInfo $ *DIM,deletedLinesInfo,ARRAY,numberOfLinesToDelete,7
+! Store numbers of selected lines
+*VGET,deletedLinesInfo(1,1),LINE,,LLIST
+! Get informations about deleted lines
+*DO,lindex,1,numberOfLinesToDelete
+	! Get coordinates of its first keypoint
+ 	*GET,kp_a,LINE,deletedLinesInfo(lindex,1),KP,1
+ 	*GET,deletedLinesInfo(lindex,2),KP,kp_a,LOC,X
+ 	*GET,deletedLinesInfo(lindex,3),KP,kp_a,LOC,Y
+ 	*GET,deletedLinesInfo(lindex,4),KP,kp_a,LOC,Z
+	! Get coordinates of its second keypoint
+ 	*GET,kp_b,LINE,deletedLinesInfo(lindex,1),KP,2
+ 	*GET,deletedLinesInfo(lindex,5),KP,kp_b,LOC,X
+ 	*GET,deletedLinesInfo(lindex,6),KP,kp_b,LOC,Y
+ 	*GET,deletedLinesInfo(lindex,7),KP,kp_b,LOC,Z
+*ENDDO
+! Invert selection to kept lines
+LSEL,INVE
+! Create component from kept lines
+CM,keptLines,LINE
+! Sum total length of lines [mm]
+LSUM $ *GET,lengthOfLines,LINE,0,LENG
+
+! ------------------------------------------------------------------------------
+! DEFINE CROSS-SECTIONS
+! ------------------------------------------------------------------------------
+! Circular shaped cross-section of beam
+SECTYPE,1,BEAM,CSOLID
+! Assign radius to section
+SECDATA,0.02
+! Circular shaped cross-section of beam
+SECTYPE,2,BEAM,CSOLID
+! Assign radius to section
+SECDATA,0.07
+
+! ------------------------------------------------------------------------------
+! LINE SPACING
+! ------------------------------------------------------------------------------
+! Define limits for moderatelly thin lines, which shall have rigid ends
+*SET,from,0.03 $ *SET,to,0.7
+! Select long slender lines
+LSEL,S,LENGTH,,sectionDiameter/to,9999
+! Divide them equally into three segments
+LESIZE,ALL,,,3,1,1
+
+! Select short thick lines
+LSEL,S,LENGTH,,0,sectionDiameter/to
+! Do not divide them
+LESIZE,ALL,,,1,1,1
+
+! ------------------------------------------------------------------------------
+! MESHING
+! ------------------------------------------------------------------------------
+! Select lines to be kept
+CMSEL,S,keptLines
+! Mesh these lines
+TYPE,1 $ SECNUM,1 $ LMESH,ALL
+
+! ------------------------------------------------------------------------------
+! MODIFY VARYING SECTION
+! ------------------------------------------------------------------------------
+! Select lines with three division, then select associated element
+LSEL,S,NDIV,,3 $ ESLL,S
+! Select all keypoint, then associated nodes, then reselect associated elements
+KSEL,ALL $ NSLK,S $ ESLN,R
+! Show element thickness
+/ESHAPE,1
+! Plot element, which should have varying section
+EPLOT
+! Do for each element in selected set
+*DOWHILE,true
+	! Get number of current element
+	*GET,current_element,ELEM,current_element,NXTH
+	! If there is no remaining element, then stop
+	*IF,current_element,EQ,0,EXIT
+	! Get numbers of corner nodes
+	*GET,node_1,ELEM,current_element,NODE,1
+	*GET,node_2,ELEM,current_element,NODE,2
+	! Select first corner node, then select associated keypoint
+	NSEL,S,NODE,,node_1 $ KSLN,S
+	! Count number of selected keypoins
+	*GET,ksel_count,KP,0,COUNT
+	! If node is associated with a keypoint, then there is bigger section
+	*IF,ksel_count,EQ,1,THEN
+		*SET,larger_node,node_1
+            *SET,smaller_node,node_2
+	*ELSE
+		*SET,larger_node,node_2
+            *SET,smaller_node,node_1
+	*ENDIF
+	! Define new section
+	SECTYPE,,TAPER
+	! Get number of last section
+	*GET,last_section,AXIS,0,NUM,MAX
+	SECDATA,1,NX(smaller_node),NY(smaller_node),NZ(smaller_node)
+	SECDATA,2,NX(larger_node),NY(larger_node),NZ(larger_node)
+	! Modify element with last section
+	EMODIF,current_element,SECNUM,last_section+1
+*ENDDO
+! Select everything again
+ALLSEL,ALL
+! Plot elements
+EPLOT
