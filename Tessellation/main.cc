@@ -1,6 +1,6 @@
-/// Author: Roman Papšík
-/// Email:  roman.papsik@email.cz
-/// Date:   2019-03-22
+/// Author: Roman Pap��k
+/// Email: roman.papsik@email.cz
+/// Date:   2019-04-02
 
 #include <cmath>
 #include <cstdlib>
@@ -21,12 +21,12 @@ struct keypoint
 
 	bool operator==(const keypoint& other) const
 	{
-		return (std::abs(x-other.x) < 1e-12 && std::abs(y-other.y) < 1e-12 && std::abs(z-other.z) < 1e-12);
+		return (std::abs(x-other.x) <= 2e-9 && std::abs(y-other.y) <= 2e-9 && std::abs(z-other.z) <= 2e-9);
 	}
 
 	double inSurface(const double& maxX, const double& maxY, const double& maxZ) const
 	{
-		return (x < 1e-9 || y < 1e-9 || z < 1e-9 || std::abs(x - maxX) < 1e-9 || std::abs(y - maxY) < 1e-9 || std::abs(z - maxZ) < 1e-9);
+		return (x <= 2e-9 || y <= 2e-9 || z <= 2e-9 || std::abs(x - maxX) <= 2e-9 || std::abs(y - maxY) <= 2e-9 || std::abs(z - maxZ) <= 2e-9);
 	}
 };
 
@@ -103,19 +103,7 @@ struct volume
 // Declaration of volumes storage
 std::vector<volume> volumes;
 
-/*/// Return index of keypoint
-size_t FindKeypointIndexByCoordinates(keypoint &sought_keypoint)
-{
-	for (size_t k = 0; k < keypoints.size(); k++) {
-		if (keypoints.at(k) == sought_keypoint) {
-			return keypoints.at(k).index;
-		}
-	}
-
-	return -1;
-}*/
-
-/// Sum lengths of all lines
+/// Function which returns total length of all lines [mm]
 double SumLinesLength()
 {
 	double lines_total_length = 0.0;
@@ -127,7 +115,7 @@ double SumLinesLength()
 	return lines_total_length;
 }
 
-/// Calculate standard deviation of lines' length [mm]
+/// Function which return standard deviation of lengths of all lines [mm]
 double CalculateStandardDeviation()
 {
 	double lines_total_length = SumLinesLength();
@@ -145,94 +133,177 @@ double CalculateStandardDeviation()
 	return lines_deviation;
 }
 
-/// Removes duplicates of lines and keypoints from storage
-void RemoveDuplicates()
+/// Function deletes duplicite lines, areas and volumes
+void RemoveDuplicates(const char *export_type)
 {
-	// Merge coincident lines by shifting keypoins indices
-	std::cout << "Coincident lines are being merged." << std::endl;
-	for (size_t line = 0; line < lines.size(); line++) {
-		keypoint current_first_keypoint = keypoints.at(lines.at(line).first_keypoint_index);
-		for (size_t kp = 0; kp < keypoints.size(); kp++) {
-			keypoint tested_keypoint = keypoints.at(kp);
-			if (tested_keypoint == current_first_keypoint) {
-				lines.at(line).first_keypoint_index = tested_keypoint.index;
-				break;
+	// Do if we want to export areas or volumes
+	if (export_type[0] == 'a' || export_type[0] == 'v')
+	{
+		std::cout << "Reindexing constituent keypoints of areas." << std::endl;
+
+		/// Reindex constituent keypoints of areas
+		// Do for each area in storage
+		for (size_t area = 0; area < areas.size(); area++)
+		{
+			// Do for each keypoint which constitutes current area
+			for (size_t area_keypoint = 0; area_keypoint < areas.at(area).keypoints_indices.size(); area_keypoint++)
+			{
+				// Do for each comparative keypoint in storage
+				for (size_t tested_keypoint = 0; tested_keypoint < keypoints.size(); tested_keypoint++)
+				{
+					// If current constituent keypoint is coincident current comparative keypoint
+					if (keypoints.at(tested_keypoint) == keypoints.at(areas.at(area).keypoints_indices.at(area_keypoint)))
+					{
+						// Reindex current constituent keypoint to lowest possible number
+						areas.at(area).keypoints_indices.at(area_keypoint) = keypoints.at(tested_keypoint).index;
+						break;
+					}
+				}
 			}
 		}
-		keypoint current_second_keypoint = keypoints.at(lines.at(line).second_keypoint_index);
-		for (size_t kp = 0; kp < keypoints.size(); kp++) {
-			keypoint tested_keypoint = keypoints.at(kp);
-			if (tested_keypoint == current_second_keypoint) {
-				lines.at(line).second_keypoint_index = tested_keypoint.index;
-				break;
+
+		/// Delete duplicit indices of constituent keypoint of areas
+		// Do for each area in storage
+		for (size_t area = 0; area < areas.size(); area++)
+		{
+			// Do for each keypoint which constitutes current area
+			for (size_t area_keypoint = 0; area_keypoint < areas.at(area).keypoints_indices.size(); area_keypoint++)
+			{
+				// Do for each following keypoint
+				for (size_t latter_keypoint = area_keypoint + 1; latter_keypoint < areas.at(area).keypoints_indices.size(); latter_keypoint++)
+				{
+					// Do if latter keypoint is the same as previous
+					if (areas.at(area).keypoints_indices.at(area_keypoint) == areas.at(area).keypoints_indices.at(latter_keypoint))
+					{
+						// Delete latter keypoint
+						areas.at(area).keypoints_indices.erase(areas.at(area).keypoints_indices.begin() + latter_keypoint);
+						latter_keypoint--;
+					}
+				}
 			}
 		}
 	}
 
-	// Merge coincident areas by shifting keypoints indices
-	std::cout << "Coincident areas are being merged." << std::endl;
-	for (size_t area = 0; area < areas.size(); area++)
+	// Do only if we want to export volumes
+	if (export_type[0] == 'v')
 	{
-		for (size_t area_keypoint = 0; area_keypoint < areas.at(area).keypoints_indices.size(); area_keypoint++)
+		// Adjust volumes to indices of merged areas
+		std::cout << "Reindexing constituent areas of volumes." << std::endl;
+		for (size_t volume = 0; volume < volumes.size(); volume++)
 		{
-			for (size_t tested_keypoint = 0; tested_keypoint < keypoints.size(); tested_keypoint++)
+			// Do for each constituent area of current volume
+			for (size_t constituent_area = 0; constituent_area < volumes.at(volume).areas_indices.size(); constituent_area++)
 			{
-				if (keypoints.at(tested_keypoint) == keypoints.at(areas.at(area).keypoints_indices.at(area_keypoint)))
+				// Do for each comparative area in storage
+				for (size_t comparative_area = 0; comparative_area < areas.size(); comparative_area++)
 				{
-					areas.at(area).keypoints_indices.at(area_keypoint) = keypoints.at(tested_keypoint).index;
+					// If current constituent area is coincident with current comparative area
+					if (areas.at(volumes.at(volume).areas_indices.at(constituent_area)) == areas.at(comparative_area))
+					{
+						// Reindex current constituent area to lowest possible number
+						volumes.at(volume).areas_indices.at(constituent_area) = areas.at(comparative_area).index;
+						break;
+					}
+				}
+
+				// If current constituent area has less than 3 vertices
+				if (areas.at(volumes.at(volume).areas_indices.at(constituent_area)).keypoints_indices.size() < 3)
+				{
+					// Remove area's index from volume's list of area indices
+					volumes.at(volume).areas_indices.erase(volumes.at(volume).areas_indices.begin() + constituent_area);
+					constituent_area--;
+				}
+			}
+		}
+	}
+
+	// Do if we want to export areas or volumes
+	if (export_type[0] == 'a' || export_type[0] == 'v')
+	{
+		/// Delete duplicate areas
+		std::cout << "Deleting duplicate areas." << std::endl;
+		for (size_t area = 0; area < areas.size(); area++)
+		{
+			for (size_t tested_area = area + 1; tested_area < areas.size(); tested_area++)
+			{
+				if (areas.at(tested_area) == areas.at(area))
+				{
+					areas.erase(areas.begin() + tested_area);
+					tested_area--;
+				}
+			}
+		}
+
+		/// Delete areas with less than 3 vertices
+		std::cout << "Deleting collapsed areas." << std::endl;
+		// Do for each area
+		for (size_t area = 0; area < areas.size(); area++)
+		{
+			// Do if area has less than 3 vertices
+			if (areas.at(area).keypoints_indices.size() < 3)
+			{
+				// Delete area
+				areas.erase(areas.begin() + area);
+				area--;
+			}
+		}
+	}
+
+	// Do if we want to export lines only
+	if (export_type[0] == 'l')
+	{
+		std::cout << "Deleting duplicate lines." << std::endl;
+
+		// Go over each lines in storage
+		for (size_t line = 0; line < lines.size(); line++)
+		{
+			/// Delete duplicate lines from storage
+			// Go over each line after current line
+			for (size_t tested_line = line + 1; tested_line < lines.size(); tested_line++)
+			{
+				// If latter line is coincident with current line
+				if (lines.at(tested_line) == lines.at(line))
+				{
+					// Delete the latter line
+					lines.erase(lines.begin() + tested_line);
+					tested_line--;
+				}
+			}
+
+			/// Shift index of first keypoint of current lines to lowest available
+			// Retrieve copy of first keypoint
+			keypoint current_first_keypoint = keypoints.at(lines.at(line).first_keypoint_index);
+			// Do for each comparative keypoint
+			for (size_t ckp = 0; ckp < keypoints.size(); ckp++) {
+				// Retrive copy of comparative keypoint
+				keypoint tested_keypoint = keypoints.at(ckp);
+				// Do if first keypoint is coincident with current comparative keypoint 
+				if (current_first_keypoint == tested_keypoint) {
+					// Change index of second keypoint to lowest keypoint available
+					lines.at(line).first_keypoint_index = tested_keypoint.index;
+					break;
+				}
+			}
+
+			/// Shift index of second keypoint of current lines to lowest available
+			// Retrieve copy of second keypoint
+			keypoint current_second_keypoint = keypoints.at(lines.at(line).second_keypoint_index);
+			// Do for each comparative keypoint
+			for (size_t ckp = 0; ckp < keypoints.size(); ckp++) {
+				// Retrive copy of comparative keypoint
+				keypoint tested_keypoint = keypoints.at(ckp);
+				// Do if second keypoint is coincident with current comparative keypoint 
+				if (current_second_keypoint == tested_keypoint) {
+					// Change index of second keypoint to lowest keypoint available
+					lines.at(line).second_keypoint_index = tested_keypoint.index;
 					break;
 				}
 			}
 		}
 	}
 
-	// Adjust volumes to indices of merged areas
-	std::cout << "Adjusting volumes to merged areas." << std::endl;
-	for (size_t volume = 0; volume < volumes.size(); volume++)
-	{
-		for (size_t volume_area = 0; volume_area < volumes.at(volume).areas_indices.size(); volume_area++)
-		{
-			for (size_t tested_area = 0; tested_area < areas.size(); tested_area++)
-			{
-				if (areas.at(tested_area) == areas.at(volumes.at(volume).areas_indices.at(volume_area)))
-				{
-					volumes.at(volume).areas_indices.at(volume_area) = areas.at(tested_area).index;
-					break;
-				}
-			}
-		}
-	}
-
-	// Delete duplicate areas
-	std::cout << "Duplicate areas are being deleted." << std::endl;
-	for (size_t area = 0; area < areas.size(); area++)
-	{
-		for(size_t tested_area = area + 1; tested_area < areas.size(); tested_area++)
-		{
-			if(areas.at(tested_area) == areas.at(area))
-			{
-				areas.erase(areas.begin() + tested_area);
-				tested_area--;
-			}
-		}
-	}
-
-	// Delete duplicate lines
-      std::cout << "Duplicate lines are being deleted." << std::endl;
-	for (size_t line = 0; line < lines.size(); line++)
-	{
-		for (size_t tested_line = line + 1; tested_line < lines.size(); tested_line++)
-		{
-			if (lines.at(tested_line) == lines.at(line))
-			{
-				lines.erase(lines.begin() + tested_line);
-				tested_line--;
-			}
-		}
-	}
-
-	// Delete unused coincident keypoints
-	std::cout << "Unused coincident keypoints are being deleted." << std::endl;
+	/// Delete unused coincident keypoints
+	std::cout << "Deleting duplicate keypoints." << std::endl;
 	for (size_t kp = 0; kp < keypoints.size(); kp++)
 	{
 		for (size_t tested_kp = kp + 1; tested_kp < keypoints.size(); tested_kp++) {
@@ -333,7 +404,7 @@ void WriteAPDL(FILE *fp, const double &x, const double &y, const double &z, cons
 	if (p[0] == 'k' || p[0] == 'l' || p[0] == 'a' || p[0] == 'v') {
 		fputs("\n!----- KEYPOINTS -------------------------------------------\n", fp);
 		for (size_t k = 0; k < keypoints.size(); k++) {
-			std::fprintf(fp, "K,%zu,%.10f,%.10f,%.10f\n", keypoints.at(k).index + 1, keypoints.at(k).x, keypoints.at(k).y, keypoints.at(k).z);
+			std::fprintf(fp, "K,%zu,%.9f,%.9f,%.9f\n", keypoints.at(k).index + 1, keypoints.at(k).x, keypoints.at(k).y, keypoints.at(k).z);
 		}
 	}
 
@@ -348,11 +419,21 @@ void WriteAPDL(FILE *fp, const double &x, const double &y, const double &z, cons
 		fputs("\n!----- AREAS -----------------------------------------------\n", fp);
 		for (size_t a = 0; a < areas.size(); a++)
 		{
-			// Areas jsou seøazené APDLkem jinak, než jsou jejich indexy - to musíš øešit pøi výpisu jejich hledáním
-			std::fprintf(fp, "NUMSTR,AREA,%zu $ A", areas.at(a).index + 1);
+			// My indices do not corespond to APDL indices
+			std::fprintf(fp, "NUMSTR,AREA,%zu $ ", areas.at(a).index + 1);
+			// Create local coordinate system for area, which is generated more than 4 keypoints
+			//if (areas.at(a).keypoints_indices.size() > 4) {
+				std::fprintf(fp, "CSKP,123,CART,%zu,%zu,%zu $ CSYS,123 $ ", areas.at(a).keypoints_indices.at(0) + 1, areas.at(a).keypoints_indices.at(1) + 1, areas.at(a).keypoints_indices.at(2) + 1);
+			//}
+			// Write keypoint indices generating area
+			std::fprintf(fp, "A");
 			for (size_t k = 0; k < areas.at(a).keypoints_indices.size(); k++) {
 				std::fprintf(fp, ",%zu", areas.at(a).keypoints_indices.at(k) + 1);
 			}
+			//if (areas.at(a).keypoints_indices.size() > 4) {
+				// Return to global coordinate system
+				std::fprintf(fp, " $ CSYS,0");
+			//}
 			std::fprintf(fp, "\n");
 		}
 	}
@@ -473,7 +554,7 @@ int main(int argc, char** argv)
 	}
 
 	// Merging solid geometry singificantly impoves speed in Ansys
-	RemoveDuplicates();
+	RemoveDuplicates(exportType);
 
 	/*// Remove border lines if no areas or volumes should be created
 	if (exportType[0] == 'l')
