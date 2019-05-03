@@ -1,0 +1,45 @@
+/CLEAR,NOSTART
+
+/PREP7
+
+! Diameter of inscribed sphere to cell
+*SET,inscribed_sphere_diameter,1
+! Diameter of circumscribed sphere to cell
+*SET,circumscribed_sphere_diameter,2/SQRT(3)*inscribed_sphere_diameter
+! Radius of inscribed circle to cell
+*SET,incircle,inscribed_sphere_diameter/2
+! Radius of circumscribed circle to cell
+*SET,excircle,circumscribed_sphere_diameter/2
+
+! Desired size of specimen
+*SET,desired_size_x,10
+*SET,desired_size_y,10
+*SET,desired_size_z,10
+
+! Calculate viable number of cell, which would fit into desired size
+*SET,cell_per_side_x,NINT(desired_size_x/inscribed_sphere_diameter)
+*SET,cell_per_side_y,NINT(desired_size_y/(3*excircle))
+*SET,cell_per_side_z,NINT(desired_size_z/(2*incircle))
+
+! Change view to YZ plane
+/VIEW,1,1,0,0 $ /ANGLE,1 $ APLOT
+
+! Generate hexagonal prisms
+*DO,y_position,1*excircle,3*excircle*cell_per_side_y,3*excircle
+*DO,z_position,1*incircle,2*incircle*cell_per_side_z,2*incircle
+	WPLANE,-1,0,y_position,z_position
+	RPRISM,0,inscribed_sphere_diameter,6,,,incircle
+*ENDDO
+*ENDDO
+*DO,y_position,2.5*excircle,3*excircle*(cell_per_side_y-1),3*excircle
+*DO,z_position,2*incircle,2*incircle*(cell_per_side_z-1),2*incircle
+	WPLANE,-1,0,y_position,z_position
+	RPRISM,0,inscribed_sphere_diameter,6,,,incircle
+*ENDDO
+*ENDDO
+
+! Extrude prisms
+VGEN,cell_per_side_z,ALL,,,inscribed_sphere_diameter,0,0
+
+VPLOT
+FINISH

@@ -1,0 +1,98 @@
+/CLEAR,NOSTART
+
+*ABBR,Znova,/input,KELVINY,inp ! Restartovací tlaèítko
+
+/PREP7
+
+! Diameter of inscribed sphere to cell
+*SET,inscribed_sphere_diameter,1
+! Diameter of circumscribed sphere to cell
+*SET,circumscribed_sphere_diameter,2/SQRT(3)*inscribed_sphere_diameter
+
+! Desired size of specimen
+*SET,desired_size_x,10
+*SET,desired_size_y,10
+*SET,desired_size_z,10
+
+! Calculate edges
+*SET,edge_t,inscribed_sphere_diameter/sqrt(6)
+*SET,edge_a,sqrt(2)*edge_t
+*SET,edge_d,sqrt(2)*edge_t+2*edge_t/sqrt(2)
+
+! Calculate viable number of cell, which would fit into desired size
+*SET,cell_per_side_x,NINT(desired_size_x/edge_d)
+*SET,cell_per_side_y,NINT(desired_size_y/edge_d)
+*SET,cell_per_side_z,NINT(desired_size_z/edge_d)
+
+! Keypoints
+K,1,-edge_d/2,0,-edge_a/2
+K,2,-edge_d/2,edge_a/2,0
+K,3,-edge_d/2,0,edge_a/2
+K,4,-edge_d/2,-edge_a/2,0
+K,5,edge_d/2,0,-edge_a/2
+K,6,edge_d/2,edge_a/2,0
+K,7,edge_d/2,0,edge_a/2
+K,8,edge_d/2,-edge_a/2,0
+K,9,0,-edge_d/2,-edge_a/2
+K,10,edge_a/2,-edge_d/2,0
+K,11,0,-edge_d/2,edge_a/2
+K,12,-edge_a/2,-edge_d/2,0
+K,13,0,edge_d/2,-edge_a/2
+K,14,edge_a/2,edge_d/2,0
+K,15,0,edge_d/2,edge_a/2
+K,16,-edge_a/2,edge_d/2,0
+K,17,0,-edge_a/2,-edge_d/2
+K,18,edge_a/2,0,-edge_d/2
+K,19,0,edge_a/2,-edge_d/2
+K,20,-edge_a/2,0,-edge_d/2
+K,21,0,-edge_a/2,edge_d/2
+K,22,edge_a/2,0,edge_d/2
+K,23,0,edge_a/2,edge_d/2
+K,24,-edge_a/2,0,edge_d/2
+
+! Squares
+A,4,3,2,1
+A,5,6,7,8
+A,9,10,11,12
+A,16,15,14,13
+A,20,19,18,17
+A,21,22,23,24
+
+! Hexaedra
+A,1,2,16,13,19,20
+A,2,3,24,23,15,16
+A,3,4,12,11,21,24
+A,20,17,9,12,4,1
+A,19,13,14,6,5,18
+A,18,5,8,10,9,17
+A,22,21,11,10,8,7
+A,22,7,6,14,15,23
+
+! Save mother cell
+VA,ALL $ CM,mother_kelvin,VOLU
+
+! WPCSYS,-1,0
+
+! Generate tetradecahedra
+*DO,x_position,edge_d/2,edge_d*cell_per_side_x,edge_d
+*DO,y_position,edge_d/2,edge_d*cell_per_side_y,edge_d
+*DO,z_position,edge_d/2,edge_d*cell_per_side_z,edge_d
+	VGEN,2,mother_kelvin,,,x_position,y_position,z_position
+*ENDDO
+*ENDDO
+*ENDDO
+
+*DO,x_position,edge_d,edge_d*(cell_per_side_x-1),edge_d
+*DO,y_position,edge_d,edge_d*(cell_per_side_y-1),edge_d
+*DO,z_position,edge_d,edge_d*(cell_per_side_z-1),edge_d
+	VGEN,2,mother_kelvin,,,x_position,y_position,z_position
+*ENDDO
+*ENDDO
+*ENDDO
+
+NUMMRG,all
+CMDELE,mother_kelvin
+VDELE,1,,,1
+
+aplot
+FINISH

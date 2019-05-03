@@ -32,32 +32,59 @@ SELTOL,1e-9
 ! ------------------------------------------------------------------------------
 ! Supress printout
 /NOPR
-! Define geometry file name
-*DEL,input_name $ *DIM,input_name,STRING,100 $ *SET,input_name(1),'GEOMETRY_kelvinovabunka_DIM_10x10x10mm_CELL_2000um_REG_100_DEV_0um'
-! Import speciment geometry
-/INPUT,input_name(1),inp
-! Select areas on the boundary
-KSEL,S,LOC,X,0 $ KSEL,A,LOC,Y,0 $ KSEL,A,LOC,Z,0 $ KSEL,A,LOC,X,sizeX $ KSEL,A,LOC,Y,sizeY $ KSEL,A,LOC,Z,sizeZ
-! Select lines whose all keypoint lie on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_LSLK.html)
-LSLK,S,1
-! Select areas whose any line lies on the boundary or connects two faces (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_ASLL.html)
-ASLL,S,0
-! Select volumes whose any area lies on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_VSLA.html)
-VSLA,S,0
-! Delete volumes on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_VDELE.html)
-VDELE,ALL
-! Delete areas on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_ADELE.html)
-ADELE,ALL
-! Delete lines on the boundary (https://www.sharcnet.ca/Software/Ansys/17.0/en-us/help/ans_cmd/Hlp_C_LDELE.html)
-LDELE,ALL
-! Select unconnected keypoints
-LSEL,ALL $ KSLL,S $ KSEL,INVE
-! Delete them
-KDELE,ALL
+
+
+/PREP7
+! Define file name prefix
+*DEL,input_name $ *DIM,input_name,STRING,100 $ *SET,input_name(1),'hexagonalprism_CELL_1000um'
+! Diameter of inscribed sphere to cell
+*SET,inscribed_sphere_diameter,1
+! Diameter of circumscribed sphere to cell
+*SET,circumscribed_sphere_diameter,2/SQRT(3)*inscribed_sphere_diameter
+! Radius of inscribed circle to cell
+*SET,incircle,inscribed_sphere_diameter/2
+! Radius of circumscribed circle to cell
+*SET,excircle,circumscribed_sphere_diameter/2
+! Desired size of specimen
+*SET,desired_size_x,10
+*SET,desired_size_y,10
+*SET,desired_size_z,10
+! Calculate viable number of cell, which would fit into desired size
+*SET,cell_per_side_x,NINT(desired_size_x/inscribed_sphere_diameter)
+*SET,cell_per_side_y,NINT(desired_size_y/(3*excircle))
+*SET,cell_per_side_z,NINT(desired_size_z/(2*incircle))
+! Change view to YZ plane
+/VIEW,1,1,0,0 $ /ANGLE,1 $ APLOT
+! Generate hexagonal prisms
+*DO,y_position,1*excircle,3*excircle*cell_per_side_y,3*excircle
+*DO,z_position,1*incircle,2*incircle*cell_per_side_z,2*incircle
+	WPLANE,-1,0,y_position,z_position
+	RPRISM,0,inscribed_sphere_diameter,6,,,incircle
+*ENDDO
+*ENDDO
+*DO,y_position,2.5*excircle,3*excircle*(cell_per_side_y-1),3*excircle
+*DO,z_position,2*incircle,2*incircle*(cell_per_side_z-1),2*incircle
+	WPLANE,-1,0,y_position,z_position
+	RPRISM,0,inscribed_sphere_diameter,6,,,incircle
+*ENDDO
+*ENDDO
+! Extrude prisms
+VGEN,cell_per_side_z,ALL,,,inscribed_sphere_diameter,0,0
+
+
 ! Select everything again
 ALLSEL,ALL
+! Merge everything
+NUMMRG,ALL
 ! Compress numbering
 NUMCMP,KP $ NUMCMP,LINE $ NUMCMP,AREA $ NUMCMP,VOLU
+! Discover size of new body
+*GET,MXnodeXloc,KP,0,MXLOC,X $ *GET,MNnodeXloc,KP,0,MNLOC,X
+*GET,MXnodeYloc,KP,0,MXLOC,Y $ *GET,MNnodeYloc,KP,0,MNLOC,Y
+*GET,MXnodeZloc,KP,0,MXLOC,Z $ *GET,MNnodeZloc,KP,0,MNLOC,Z
+sizeX=(MXnodeXloc-MNnodeXloc)
+sizeY=(MXnodeYloc-MNnodeYloc)
+sizeZ=(MXnodeZloc-MNnodeZloc)
 ! Axonometric projection
 /VIEW,1,1,1,1 $ /ANG,1 $ /VIEW,1,0.6,0.7,2
 ! Fill screen with object
